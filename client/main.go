@@ -100,7 +100,6 @@ func main() {
 
 	tgscs := entity.TicketForClientAndForServer{}
 	err = DecryptAndDeserialize(gsrsp.TicketForClientAndForServerEncrypted, kdcSessionKey, &tgscs)
-
 	fmt.Printf("err: %w, login: %s, name: %s", err, tgscs.Ticket.Login, tgscs.Ticket.ServerName)
 	if err != nil || tgscs.Ticket.Login != login || tgscs.Ticket.ServerName != "Server" {
 		log.Fatal("Wrong TGS ticket")
@@ -109,9 +108,9 @@ func main() {
 
 	// SessionKeyExchangeRequest
 	fmt.Println("Creating SessionKeyExchangeRequest...")
-	serverSessionKey := tgscs.Ticket.ServerClientSessionKey
+	//serverSessionKey := tgscs.Ticket.ServerClientSessionKey
 	sessionKeyExchangeRequestTime := time.Now().UTC()
-	rtE, err := cipher.Encrypt(jsonSerialize(sessionKeyExchangeRequestTime), serverSessionKey)
+	rtE, err := cipher.Encrypt(jsonSerialize(sessionKeyExchangeRequestTime), kdcSessionKey)
 	if err != nil {
 		log.Fatal("encrypt fault")
 		return
@@ -127,10 +126,10 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Success!Response:")
-	fmt.Println(skersp)
+	//fmt.Println(skersp)
 
 	loginAndTime := entity.LoginAndTime{}
-	err = DecryptAndDeserialize(skersp.RequestTimeWithLoginEncrypted, serverSessionKey, &loginAndTime)
+	err = DecryptAndDeserialize(skersp.RequestTimeWithLoginEncrypted, kdcSessionKey, &loginAndTime)
 	if err != nil || loginAndTime.Login != login || loginAndTime.RequestTime != sessionKeyExchangeRequestTime {
 		log.Fatal("Server sent wrong request")
 	}

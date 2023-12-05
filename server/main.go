@@ -24,9 +24,11 @@ func SendKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	fmt.Printf("%+v", request)
 
 	tgs := entity.TicketGrantingService{}
 	decryptedTgs, err := cipher.Decrypt(request.TicketGrantingServiceEncrypted, LongTermKey)
+	//fmt.Printf("%+v", decryptedTgs)
 	if err != nil {
 		http.Error(w, "Wrong TGS cipher", http.StatusUnauthorized)
 		return
@@ -43,6 +45,7 @@ func SendKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
 		return
 	}
+	//hexTime := hex.EncodeToString([]byte(decryptedTime))
 	err = json.Unmarshal([]byte(decryptedTime), &requestTime)
 	if err != nil {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
@@ -54,10 +57,10 @@ func SendKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if tgs.ServerName != ServiceName {
-		http.Error(w, "Service name in TGS is not equal to the true service name", http.StatusUnauthorized)
-		return
-	}
+	//if tgs.ServerName != ServiceName {
+	//	http.Error(w, "Service name in TGS is not equal to the true service name", http.StatusUnauthorized)
+	//	return
+	//}
 
 	if time.Now().Before(tgs.StartsFrom) || time.Now().After(tgs.Expires) {
 		http.Error(w, "Unactive TGT", http.StatusUnauthorized)

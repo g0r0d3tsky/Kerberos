@@ -13,7 +13,7 @@ type TicketGrantingService struct {
 	ServerName             string    `json:"serverName"`
 	StartsFrom             time.Time `json:"startsFrom"`
 	Expires                time.Time `json:"expires"`
-	ServerClientSessionKey string    `json:"serverClientSessionKey"`
+	ServerClientSessionKey string    `json:"kdcClientSessionKey"`
 	Login                  string    `json:"login"`
 }
 
