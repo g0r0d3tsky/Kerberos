@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"last_hope/cipher"
 	"last_hope/entity"
 	"log"
 	"net/http"
@@ -25,19 +26,24 @@ func main() {
 	fmt.Print("Enter Password: ")
 	fmt.Scanln(&password)
 
-	longTermKey := CreateMD5(password + login)
+	longTermKey := cipher.CreateMD5(password + login)
 	fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
 
 	// AuthenticationRequest
 	fmt.Println("Creating AuthenticationRequest...")
+
 	authenticationRequestTime := time.Now().UTC()
+	aurtE, err := cipher.Encrypt(jsonSerialize(authenticationRequestTime), longTermKey)
+	if err != nil {
+		//TODO
+	}
 	arq := entity.AuthenticationRequest{
 		Login:                login,
-		RequestTimeEncrypted: Encrypt(jsonSerialize(authenticationRequestTime), longTermKey),
+		RequestTimeEncrypted: aurtE,
 	}
 	fmt.Println("Sending AuthenticationRequest...")
 	arsp := entity.AuthenticationResponse{}
-	err := postRequest(client, fmt.Sprintf("https://%s:%s/TGT", ip, kdcPort), arq, &arsp)
+	err = postRequest(client, fmt.Sprintf("https://%s:%s/TGT", ip, kdcPort), arq, &arsp)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,9 +64,13 @@ func main() {
 	tgt := arsp.TicketGrantingTicketEncrypted
 	kdcSessionKey := skt.SessionKey
 	grantingServiceRequestTime := time.Now().UTC()
+	gsrE, err := cipher.Encrypt(jsonSerialize(grantingServiceRequestTime), kdcSessionKey)
+	if err != nil {
+		//TODO
+	}
 	gsr := entity.GrantingServiceRequest{
 		Login:                         login,
-		RequestTimeEncrypted:          Encrypt(jsonSerialize(grantingServiceRequestTime), kdcSessionKey),
+		RequestTimeEncrypted:          gsrE,
 		ServiceName:                   "Server",
 		TicketGrantingTicketEncrypted: tgt,
 	}
@@ -83,8 +93,12 @@ func main() {
 	fmt.Println("Creating SessionKeyExchangeRequest...")
 	serverSessionKey := tgscs.Ticket.ServerClientSessionKey
 	sessionKeyExchangeRequestTime := time.Now().UTC()
+	rtE, err := cipher.Encrypt(jsonSerialize(sessionKeyExchangeRequestTime), serverSessionKey)
+	if err != nil {
+		//TODO:
+	}
 	skerq := entity.SessionKeyExchangeRequest{
-		RequestTimeEncrypted:           Encrypt(jsonSerialize(sessionKeyExchangeRequestTime), serverSessionKey),
+		RequestTimeEncrypted:           rtE,
 		TicketGrantingServiceEncrypted: tgscs.TicketEncrypted,
 	}
 	fmt.Println("Sending SessionKeyExchangeRequest...")
@@ -134,17 +148,16 @@ func jsonSerialize(data interface{}) string {
 	return string(jsonData)
 }
 
-func Encrypt(data, key string) string {
-	// Implement encryption logic here
-	return data
-}
+func DecryptAndDeserialize(cipherText string, passPhrase string, target interface{}) error {
+	decryptedText, err := cipher.Decrypt(cipherText, passPhrase)
+	if err != nil {
+		return err
+	}
 
-func DecryptAndDeserialize(encryptedData, key string, decryptedData interface{}) error {
-	// Implement decryption logic here
+	err = json.Unmarshal([]byte(decryptedText), target)
+	if err != nil {
+		return err
+	}
+
 	return nil
-}
-
-func CreateMD5(data string) string {
-	// Implement MD5 hash creation logic here
-	return data
 }

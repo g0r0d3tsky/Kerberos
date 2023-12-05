@@ -198,7 +198,7 @@ func main() {
 	http.HandleFunc("/TGT", getTGT)
 	http.HandleFunc("/TGS", getTGS)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":7089", nil))
 }
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {

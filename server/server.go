@@ -132,5 +132,5 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/key", SendKey)
 	http.HandleFunc("/message", SendMessage)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":7055", nil))
 }
