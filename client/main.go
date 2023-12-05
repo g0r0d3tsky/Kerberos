@@ -16,7 +16,7 @@ func main() {
 		Timeout: time.Second * 10,
 	}
 
-	const ip = "localhost"
+	const ip = "127.0.0.1"
 	const kdcPort = "7089"
 	const serverPort = "7055"
 
@@ -27,7 +27,7 @@ func main() {
 	fmt.Scanln(&password)
 
 	longTermKey := cipher.CreateMD5(password + login)
-	fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
+	//fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
 
 	// AuthenticationRequest
 	fmt.Println("Creating AuthenticationRequest...")
@@ -35,15 +35,16 @@ func main() {
 	authenticationRequestTime := time.Now().UTC()
 	aurtE, err := cipher.Encrypt(jsonSerialize(authenticationRequestTime), longTermKey)
 	if err != nil {
-		//TODO
+		log.Fatal("fail encrypt request")
+		return
 	}
 	arq := entity.AuthenticationRequest{
 		Login:                login,
 		RequestTimeEncrypted: aurtE,
 	}
-	fmt.Println("Sending AuthenticationRequest...")
+	fmt.Printf("Sending AuthenticationRequest... %+v \n", arq)
 	arsp := entity.AuthenticationResponse{}
-	err = postRequest(client, fmt.Sprintf("https://%s:%s/TGT", ip, kdcPort), arq, &arsp)
+	err = postRequest(client, fmt.Sprintf("http://%s:%s/TGT", ip, kdcPort), arq, &arsp)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,7 +104,7 @@ func main() {
 	}
 	fmt.Println("Sending SessionKeyExchangeRequest...")
 	skersp := entity.SessionKeyExchangeResponse{}
-	err = postRequest(client, fmt.Sprintf("https://%s:%s/key", ip, serverPort), skerq, &skersp)
+	err = postRequest(client, fmt.Sprintf("http://%s:%s/key", ip, serverPort), skerq, &skersp)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,10 +132,11 @@ func postRequest(client *http.Client, url string, requestData interface{}, respo
 
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Fatalf("do request error %w", err)
 		return err
 	}
 	defer resp.Body.Close()
-
+	fmt.Printf("body %+v", resp)
 	err = json.NewDecoder(resp.Body).Decode(responseData)
 	if err != nil {
 		return err
@@ -154,7 +156,7 @@ func DecryptAndDeserialize(cipherText string, passPhrase string, target interfac
 		return err
 	}
 
-	err = json.Unmarshal([]byte(decryptedText), target)
+	err = json.Unmarshal([]byte(decryptedText), &target)
 	if err != nil {
 		return err
 	}

@@ -38,12 +38,13 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var requestTime time.Time
+
 	decryptedTime, err := cipher.Decrypt(request.RequestTimeEncrypted, key)
 	if err != nil {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
 		return
 	}
-
+	fmt.Println(decryptedTime)
 	err = json.Unmarshal([]byte(decryptedTime), &requestTime)
 	if err != nil {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
@@ -74,7 +75,8 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 
 	tgtJSON, err := json.Marshal(tgt)
 	if err != nil {
-		// Обработка ошибки сериализации в JSON
+		log.Fatal("json marshal")
+		return
 	}
 	sktJSON, err := json.Marshal(skt)
 	if err != nil {
@@ -108,6 +110,7 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s connected to get TGS\n", request.Login)
 
 	decryptedTgt, err := cipher.Decrypt(request.TicketGrantingTicketEncrypted, MasterKey)
+	fmt.Println(decryptedTgt)
 	if err != nil {
 		http.Error(w, "Wrong TGT", http.StatusUnauthorized)
 		return
@@ -198,7 +201,7 @@ func main() {
 	http.HandleFunc("/TGT", getTGT)
 	http.HandleFunc("/TGS", getTGS)
 
-	log.Fatal(http.ListenAndServe(":7089", nil))
+	log.Fatal(http.ListenAndServe("localhost:7089", nil))
 }
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {
