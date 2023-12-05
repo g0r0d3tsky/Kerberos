@@ -27,7 +27,8 @@ func main() {
 	fmt.Scanln(&password)
 
 	longTermKey := cipher.CreateMD5(password + login)
-	//fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
+
+	fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
 
 	// AuthenticationRequest
 	fmt.Println("Creating AuthenticationRequest...")
@@ -42,17 +43,18 @@ func main() {
 		Login:                login,
 		RequestTimeEncrypted: aurtE,
 	}
-	fmt.Printf("Sending AuthenticationRequest... %+v \n", arq)
+	fmt.Println("Sending AuthenticationRequest... ")
 	arsp := entity.AuthenticationResponse{}
 	err = postRequest(client, fmt.Sprintf("http://%s:%s/TGT", ip, kdcPort), arq, &arsp)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Success! Response:")
-	fmt.Println(arsp)
+	//fmt.Println(arsp)
 
 	skt := entity.SessionKeyAndTime{}
 	err = DecryptAndDeserialize(arsp.SessionKeyAndRequestTimeEncrypted, longTermKey, &skt)
+	//fmt.Printf("SKT:::::::::::::%+v", skt)
 	if err != nil {
 		log.Fatal("KDC has wrong long-term key")
 	}
@@ -64,10 +66,18 @@ func main() {
 	fmt.Println("Creating GrantingServiceRequest...")
 	tgt := arsp.TicketGrantingTicketEncrypted
 	kdcSessionKey := skt.SessionKey
+	fmt.Println(len(kdcSessionKey))
+	//sessionKeyHex := hex.EncodeToString([]byte(skt.SessionKey))
+	//fmt.Println("Session Key (hex):", sessionKeyHex)
+
 	grantingServiceRequestTime := time.Now().UTC()
+	//fmt.Println(grantingServiceRequestTime)
 	gsrE, err := cipher.Encrypt(jsonSerialize(grantingServiceRequestTime), kdcSessionKey)
+	//fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+	//fmt.Println(cipher.Decrypt(gsrE, kdcSessionKey))
 	if err != nil {
-		//TODO
+		log.Fatal("encrypt fault")
+		return
 	}
 	gsr := entity.GrantingServiceRequest{
 		Login:                         login,
@@ -77,17 +87,24 @@ func main() {
 	}
 	fmt.Println("Sending GrantingServiceRequest...")
 	gsrsp := entity.GrantingServiceResponse{}
-	err = postRequest(client, fmt.Sprintf("https://%s:%s/TGS", ip, kdcPort), gsr, &gsrsp)
+
+	//fmt.Printf("\n %+v", gsr)
+	err = postRequest(client, fmt.Sprintf("http://%s:%s/TGS", ip, kdcPort), gsr, &gsrsp)
+	//fmt.Printf("\n %+v", gsrsp)
 	if err != nil {
+		//fmt.Printf("%+v", gsrsp)
 		log.Fatal(err)
 	}
+
 	fmt.Println("Success! Response:")
-	fmt.Println(gsrsp)
 
 	tgscs := entity.TicketForClientAndForServer{}
 	err = DecryptAndDeserialize(gsrsp.TicketForClientAndForServerEncrypted, kdcSessionKey, &tgscs)
+
+	fmt.Printf("err: %w, login: %s, name: %s", err, tgscs.Ticket.Login, tgscs.Ticket.ServerName)
 	if err != nil || tgscs.Ticket.Login != login || tgscs.Ticket.ServerName != "Server" {
 		log.Fatal("Wrong TGS ticket")
+		return
 	}
 
 	// SessionKeyExchangeRequest
@@ -96,7 +113,8 @@ func main() {
 	sessionKeyExchangeRequestTime := time.Now().UTC()
 	rtE, err := cipher.Encrypt(jsonSerialize(sessionKeyExchangeRequestTime), serverSessionKey)
 	if err != nil {
-		//TODO:
+		log.Fatal("encrypt fault")
+		return
 	}
 	skerq := entity.SessionKeyExchangeRequest{
 		RequestTimeEncrypted:           rtE,

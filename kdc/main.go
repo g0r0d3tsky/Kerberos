@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"last_hope/cipher"
@@ -17,7 +18,7 @@ const (
 )
 
 var longTermKeys = map[string]string{
-	"user":   "AD42C83AC4D3B86DE14F207C46A0DF0E",
+	"user":   "5cc32e366c87c4cb49e4309b75f57d64",
 	"Server": "75892C1452ABB04C1D1C5E5BF041D885",
 }
 
@@ -38,13 +39,13 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var requestTime time.Time
-
+	//decryptedTime := "747171b34cc8c9538a8123e6e2b9757506e58d682c6f1935a58900caa6aace7d855581b3c6c43b7211cc5e21e5c669db"
 	decryptedTime, err := cipher.Decrypt(request.RequestTimeEncrypted, key)
 	if err != nil {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
 		return
 	}
-	fmt.Println(decryptedTime)
+
 	err = json.Unmarshal([]byte(decryptedTime), &requestTime)
 	if err != nil {
 		http.Error(w, "Wrong cipher", http.StatusUnauthorized)
@@ -55,21 +56,27 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Time difference is too big (> %d minutes)", MaxTimeDifference), http.StatusUnauthorized)
 		return
 	}
+	//fmt.Println("Key size: ")
+	//генерация случайного ключа
 
 	kdcClientSessionKey, err := cipher.Generate128BitsOfRandomEntropy()
+	//fmt.Println(string(kdcClientSessionKey))
+	kdcClientSessionKey2 := hex.EncodeToString(kdcClientSessionKey)
+
+	//fmt.Println(kdcClientSessionKey)
 	if err != nil {
 		//TODO:
 		return
 	}
 	tgt := entity.TicketGrantingTicket{
 		Login:               request.Login,
-		KdcClientSessionKey: string(kdcClientSessionKey),
+		KdcClientSessionKey: kdcClientSessionKey2,
 		StartsFrom:          time.Now().UTC(),
 		Expires:             time.Now().UTC().Add(MaxTicketLife),
 	}
 
 	skt := entity.SessionKeyAndTime{
-		SessionKey:  tgt.KdcClientSessionKey,
+		SessionKey:  kdcClientSessionKey2,
 		RequestTime: requestTime,
 	}
 
@@ -80,15 +87,17 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 	}
 	sktJSON, err := json.Marshal(skt)
 	if err != nil {
-		//TODO:
+		log.Fatal("json marhal fault")
+		return
 	}
 	tgtE, err := cipher.Encrypt(string(tgtJSON), MasterKey)
 	if err != nil {
-		//TODO:
+		log.Fatal("marshal tgt")
 	}
 	skenc, err := cipher.Encrypt(string(sktJSON), key)
+	fmt.Println(skenc)
 	if err != nil {
-		//TODO:
+		log.Fatal("marshal skenc")
 	}
 	ar := entity.AuthenticationResponse{
 		TicketGrantingTicketEncrypted:     tgtE,
@@ -110,7 +119,7 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s connected to get TGS\n", request.Login)
 
 	decryptedTgt, err := cipher.Decrypt(request.TicketGrantingTicketEncrypted, MasterKey)
-	fmt.Println(decryptedTgt)
+	//fmt.Println(decryptedTgt)
 	if err != nil {
 		http.Error(w, "Wrong TGT", http.StatusUnauthorized)
 		return
@@ -122,7 +131,6 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong TGT", http.StatusUnauthorized)
 		return
 	}
-
 	key := tgt.KdcClientSessionKey
 
 	var requestTime time.Time
@@ -152,19 +160,20 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unactive TGT", http.StatusUnauthorized)
 		return
 	}
-	serverClientSessionKey, err := cipher.Generate128BitsOfRandomEntropy()
+	serverClientSessionKey2, err := cipher.Generate128BitsOfRandomEntropy()
+	serverClientSessionKey := hex.EncodeToString(serverClientSessionKey2)
 	if err != nil {
 		return
 	}
 	tgs := entity.TicketGrantingService{
 		Login:                  request.Login,
 		ServerName:             request.ServiceName,
-		ServerClientSessionKey: string(serverClientSessionKey),
+		ServerClientSessionKey: serverClientSessionKey,
 		StartsFrom:             time.Now().UTC(),
 		Expires:                time.Now().UTC().Add(MaxTicketLife),
 	}
 
-	_, ok := longTermKeys[request.ServiceName]
+	serverKey, ok := longTermKeys[request.ServiceName]
 	if !ok {
 		http.Error(w, "No such Service", http.StatusBadRequest)
 		return
@@ -173,9 +182,10 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Обработка ошибки сериализации в JSON
 	}
-	tgsE, err := cipher.Encrypt(string(tgsJSON), MasterKey)
+	tgsE, err := cipher.Encrypt(string(tgsJSON), serverKey)
 	if err != nil {
-		//TODO:
+		log.Fatalf("encrypt error")
+		return
 	}
 	tcs := entity.TicketForClientAndForServer{
 		Ticket:          tgs,
@@ -183,11 +193,13 @@ func getTGS(w http.ResponseWriter, r *http.Request) {
 	}
 	tcsJSON, err := json.Marshal(tcs)
 	if err != nil {
-		//TODO
+		log.Fatalf("marshal error")
+		return
 	}
-	tcsE, err := cipher.Encrypt(string(tcsJSON), MasterKey)
+	tcsE, err := cipher.Encrypt(string(tcsJSON), key)
 	if err != nil {
-		//TODO:
+		log.Fatalf("encrypt error")
+		return
 	}
 	gsr := entity.GrantingServiceResponse{
 		TicketForClientAndForServerEncrypted: tcsE,
