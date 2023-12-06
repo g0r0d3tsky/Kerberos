@@ -28,7 +28,7 @@ func main() {
 
 	longTermKey := cipher.CreateMD5(password + login)
 
-	fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
+	//fmt.Printf("[DEBUG]: Generated long-term key %s\n", longTermKey)
 
 	// AuthenticationRequest
 	fmt.Println("Creating AuthenticationRequest...")
@@ -66,7 +66,7 @@ func main() {
 	fmt.Println("Creating GrantingServiceRequest...")
 	tgt := arsp.TicketGrantingTicketEncrypted
 	kdcSessionKey := skt.SessionKey
-	fmt.Println(len(kdcSessionKey))
+	//fmt.Println(len(kdcSessionKey))
 	//sessionKeyHex := hex.EncodeToString([]byte(skt.SessionKey))
 	//fmt.Println("Session Key (hex):", sessionKeyHex)
 
@@ -100,7 +100,7 @@ func main() {
 
 	tgscs := entity.TicketForClientAndForServer{}
 	err = DecryptAndDeserialize(gsrsp.TicketForClientAndForServerEncrypted, kdcSessionKey, &tgscs)
-	fmt.Printf("err: %w, login: %s, name: %s", err, tgscs.Ticket.Login, tgscs.Ticket.ServerName)
+	//fmt.Printf("err: %w, login: %s, name: %s", err, tgscs.Ticket.Login, tgscs.Ticket.ServerName)
 	if err != nil || tgscs.Ticket.Login != login || tgscs.Ticket.ServerName != "Server" {
 		log.Fatal("Wrong TGS ticket")
 		return

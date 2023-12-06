@@ -95,7 +95,7 @@ func getTGT(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("marshal tgt")
 	}
 	skenc, err := cipher.Encrypt(string(sktJSON), key)
-	fmt.Println(skenc)
+	//fmt.Println(skenc)
 	if err != nil {
 		log.Fatal("marshal skenc")
 	}
